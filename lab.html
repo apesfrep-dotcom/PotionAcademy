@@ -67,6 +67,10 @@ footer input{font-size:22px;padding:9px 14px;border-radius:12px;border:2px solid
 .bubble{animation:bub 2.2s ease-in infinite}
 @keyframes bub{from{transform:translateY(0);opacity:.9}to{transform:translateY(-100px);opacity:0}}
 .tap{cursor:pointer}
+.pulse{animation:pulse 1.3s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{50%{opacity:.25;transform:scale(1.08)}}
+.bob{animation:bob 1s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(10px)}}
 .tap:hover image{filter:brightness(1.12) drop-shadow(0 0 12px #5ef2d1)}
 .shake{animation:shake .4s}
 @keyframes shake{25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
@@ -104,6 +108,7 @@ footer input{font-size:22px;padding:9px 14px;border-radius:12px;border:2px solid
   <div id="say"><button id="again" title="Hear it again" aria-label="Hear it again">🔊</button><span id="sayTxt"></span></div>
   <footer id="ctlOrder">
     <button id="bEmpty">Start over</button>
+    <button id="bScoop" class="hide" style="background:linear-gradient(#ffe07a,#f2b51e);color:#2a1a00;border:0">🥛 Scoop out 250 mL</button>
     <button id="bBrew" class="brew">Brew!</button>
   </footer>
   <footer id="ctlTarget" class="hide">
@@ -233,7 +238,7 @@ const ORDERS=[
  {title:'Dragon Fire Fizz',lines:['600 mL dragon juice'],need:{dragon:600},start:{},hint:'h3',goal:600,show:['dragon'],ask:'Make <b>600 mL</b> of dragon juice.',clue:'Count by 200s: 200, 400, … How many juice boxes make <b>600 mL</b>?'},
  {title:'Rainbow Brew',lines:['500 mL spring water','400 mL dragon juice'],need:{spring:500,dragon:400},start:{},hint:'h4',goal:900,show:['spring','dragon'],ask:'Mix <b>500 mL</b> of spring water and <b>400 mL</b> of dragon juice.',clue:'First pour <b>500 mL</b> of spring water. Then add <b>400 mL</b> of dragon juice.'},
  {title:'Top It Up!',lines:['1 L moon milk','(250 mL is already in)'],need:{moon:1000},start:{moon:250},hint:'h5',goal:1000,show:['moon'],ask:'The flask has <b>250 mL</b>. Fill it to <b>1 L</b> of moon milk.',clue:'Start at 250. Count by 250s up to <b>1,000 mL</b>: 250, 500, …'},
- {title:'Oops, Too Much!',lines:['500 mL spring water','(scoop some out)'],need:{spring:500},start:{spring:1000},hint:'h6',scoop:true,goal:500,show:['scoop'],ask:'The flask has <b>1,000 mL</b>. Scoop it down to <b>500 mL</b>.',clue:'Each scoop takes out 250 mL. Count back: 1,000, 750, … to <b>500 mL</b>.'},
+ {title:'Oops, Too Much!',lines:['500 mL spring water','(scoop some out)'],need:{spring:500},start:{spring:1000},hint:'h6',scoop:true,goal:500,show:['scoop'],ask:'The flask has <b>1,000 mL</b>. Tap the <b>SCOOP</b> carton (or the Scoop button) to take liquid out until it has <b>500 mL</b>.',clue:'Tap the yellow <b>SCOOP</b> carton. Each scoop takes out 250 mL. Count back: 1,000, 750, … to <b>500 mL</b>.'},
 ];
 const SHELF=[['fairy',95],['pixie',245],['dragon',405],['moon',580],['troll',755],['spring',935]];
 
@@ -254,7 +259,11 @@ async function openOrder(i,hello=false){busy=false;voice.pause();cur=i;fails=0;c
   $('#ctlOrder').classList.remove('hide');$('#ctlMake').classList.add('hide');
   scene('bg_lab');add(SV,recipeCard(o,i));
   SHELF.forEach(([k,x])=>place(k,x,{onTap:pour}));
-  if(o.scoop)place('moon',1110,{onTap:scoop,label:false}),add(SV,`<g><rect x="1036" y="814" width="148" height="56" rx="16" fill="#ffe08a" stroke="#7a4b12" stroke-width="2"/><text x="1110" y="840" text-anchor="middle" font-size="20" font-weight="700" fill="#4a2a0c">empty carton</text><text x="1110" y="863" text-anchor="middle" font-size="18" fill="#4a2a0c">scoops out 250 mL</text></g>`);
+  $('#bScoop').classList.toggle('hide',!o.scoop);
+  if(o.scoop){add(SV,`<g id="scoopGlow"><ellipse class="pulse" cx="1110" cy="${BASE-120}" rx="95" ry="170" fill="none" stroke="#ffcf4a" stroke-width="6"/></g>`);
+    W_scoop=place('moon',1110,{onTap:scoop,label:false});
+    add(SV,`<g><rect x="1020" y="812" width="180" height="62" rx="16" fill="#ffcf4a" stroke="#7a4b12" stroke-width="3"/><text x="1110" y="840" text-anchor="middle" font-size="24" font-weight="700" fill="#2a1a00">SCOOP</text><text x="1110" y="864" text-anchor="middle" font-size="18" fill="#2a1a00">tap: takes out 250 mL</text></g>
+      <g class="bob"><text x="1110" y="${BASE-330}" text-anchor="middle" font-size="30" font-weight="700" fill="#ffcf4a" stroke="#0b0818" stroke-width="7" paint-order="stroke">Tap me to scoop out!</text><path d="M1110 ${BASE-315} v40 m-16 -16 l16 16 l16 -16" stroke="#ffcf4a" stroke-width="6" fill="none" stroke-linecap="round"/></g>`);}
   flask={...o.start};drawFlask();drawChips();
   showMsg(`<p class="small">Order ${i+1} of 6</p><h2>${o.title}</h2>${pics(o)}<p class="big">${o.ask}</p><button id="mGo">Start pouring</button>`);
   $('#mGo').onclick=()=>{closeMsg();voice.pause();};
@@ -296,7 +305,7 @@ async function brew(){if(busy||cur==='make'||!$('#msg').classList.contains('hide
   busy=false;}
 function showMsg(html){$('#msgCard').innerHTML=html;$('#msg').classList.remove('hide');const b=$('#msgCard button');if(b)b.focus();}
 function closeMsg(){$('#msg').classList.add('hide');}
-$('#bBrew').onclick=brew;$('#bEmpty').onclick=()=>{if(!busy)resetFlask();};
+$('#bBrew').onclick=brew;let W_scoop=null;$('#bScoop').onclick=()=>{if(W_scoop&&$('#msg').classList.contains('hide'))scoop(W_scoop);};$('#bEmpty').onclick=()=>{if(!busy)resetFlask();};
 
 /* ---------- potion creator (open-ended) ---------- */
 const POT={x:1160,y:427,rx:200}, CAP=3000;
